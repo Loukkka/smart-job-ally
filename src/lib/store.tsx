@@ -14,16 +14,20 @@ import type {
   ApplicationStatus,
   CoverLetter,
   JobOffer,
+  PlanId,
   Resume,
+  Subscription,
   User,
 } from "./types";
 import { OFFERS } from "./offers";
+import { PLANS } from "./plans";
 
-const STORAGE_KEY = "hirewise:data:v1";
+const STORAGE_KEY = "hirewise:data:v2";
 
 const EMPTY: AppData = {
   user: null,
   plan: "Free",
+  subscription: { status: "none", since: null, provider: null },
   resumes: [],
   letters: [],
   applications: [],
@@ -46,21 +50,26 @@ function load(): AppData {
 
 interface StoreValue extends AppData {
   hydrated: boolean;
+  isPro: boolean;
   // auth
   signIn: (email: string, name?: string) => void;
   signOut: () => void;
-  // plan
-  setPlan: (plan: AppData["plan"]) => void;
+  // plan / abonnement
+  activatePlan: (plan: PlanId, provider?: Subscription["provider"]) => void;
+  cancelSubscription: () => void;
+  canCreateResume: () => boolean;
+  canCreateLetter: () => boolean;
+  autoApplyLimit: () => number;
   // resumes
-  addResume: (input: { title: string; role: string; summary: string; skills: string }) => Resume;
+  addResume: (input: { title: string; role: string; summary: string; skills: string }) => Resume | null;
   removeResume: (id: string) => void;
   // letters
-  addLetter: (input: { company: string; role: string; tone: CoverLetter["tone"] }) => CoverLetter;
+  addLetter: (input: { company: string; role: string; tone: CoverLetter["tone"] }) => CoverLetter | null;
   removeLetter: (id: string) => void;
   // applications
   apply: (offer: JobOffer) => boolean;
   setApplicationStatus: (id: string, status: ApplicationStatus) => void;
-  autoApply: (count: number) => number;
+  autoApply: (offers: JobOffer[], count: number) => number;
   hasApplied: (offerId: string) => boolean;
 }
 
@@ -117,45 +126,87 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setData((d) => ({ ...d, user: null }));
   }, []);
 
-  const setPlan = useCallback((plan: AppData["plan"]) => {
-    setData((d) => ({ ...d, plan }));
+  const activatePlan = useCallback<StoreValue["activatePlan"]>((plan, provider = "demo") => {
+    setData((d) => ({
+      ...d,
+      plan,
+      subscription:
+        plan === "Free"
+          ? { status: "none", since: null, provider: null }
+          : { status: "active", since: new Date().toISOString(), provider },
+    }));
   }, []);
 
-  const addResume = useCallback<StoreValue["addResume"]>((input) => {
-    const skills = input.skills
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const summary = input.summary.trim() || generateSummary(input.role, skills);
-    const resume: Resume = {
-      id: uid("cv"),
-      title: input.title.trim() || `CV ${input.role}`,
-      role: input.role.trim(),
-      summary,
-      skills,
-      atsScore: computeAtsScore(skills, summary.length),
-      createdAt: new Date().toISOString(),
-    };
-    setData((d) => ({ ...d, resumes: [resume, ...d.resumes] }));
-    return resume;
+  const cancelSubscription = useCallback(() => {
+    setData((d) => ({
+      ...d,
+      plan: "Free",
+      subscription: { status: "none", since: null, provider: null },
+    }));
   }, []);
+
+  const canCreateResume = useCallback(() => {
+    const limit = PLANS[data.plan].limits.resumes;
+    return limit === -1 || data.resumes.length < limit;
+  }, [data.plan, data.resumes.length]);
+
+  const canCreateLetter = useCallback(() => {
+    const limit = PLANS[data.plan].limits.letters;
+    return limit === -1 || data.letters.length < limit;
+  }, [data.plan, data.letters.length]);
+
+  const autoApplyLimit = useCallback(
+    () => PLANS[data.plan].limits.autoApplyPerRun,
+    [data.plan]
+  );
+
+  const addResume = useCallback<StoreValue["addResume"]>(
+    (input) => {
+      const limit = PLANS[data.plan].limits.resumes;
+      if (limit !== -1 && data.resumes.length >= limit) return null;
+
+      const skills = input.skills
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const summary = input.summary.trim() || generateSummary(input.role, skills);
+      const resume: Resume = {
+        id: uid("cv"),
+        title: input.title.trim() || `CV ${input.role}`,
+        role: input.role.trim(),
+        summary,
+        skills,
+        atsScore: computeAtsScore(skills, summary.length),
+        createdAt: new Date().toISOString(),
+      };
+      setData((d) => ({ ...d, resumes: [resume, ...d.resumes] }));
+      return resume;
+    },
+    [data.plan, data.resumes.length]
+  );
 
   const removeResume = useCallback((id: string) => {
     setData((d) => ({ ...d, resumes: d.resumes.filter((r) => r.id !== id) }));
   }, []);
 
-  const addLetter = useCallback<StoreValue["addLetter"]>((input) => {
-    const letter: CoverLetter = {
-      id: uid("lt"),
-      company: input.company.trim(),
-      role: input.role.trim(),
-      tone: input.tone,
-      content: generateLetter(input.company.trim(), input.role.trim(), input.tone),
-      createdAt: new Date().toISOString(),
-    };
-    setData((d) => ({ ...d, letters: [letter, ...d.letters] }));
-    return letter;
-  }, []);
+  const addLetter = useCallback<StoreValue["addLetter"]>(
+    (input) => {
+      const limit = PLANS[data.plan].limits.letters;
+      if (limit !== -1 && data.letters.length >= limit) return null;
+
+      const letter: CoverLetter = {
+        id: uid("lt"),
+        company: input.company.trim(),
+        role: input.role.trim(),
+        tone: input.tone,
+        content: generateLetter(input.company.trim(), input.role.trim(), input.tone),
+        createdAt: new Date().toISOString(),
+      };
+      setData((d) => ({ ...d, letters: [letter, ...d.letters] }));
+      return letter;
+    },
+    [data.plan, data.letters.length]
+  );
 
   const removeLetter = useCallback((id: string) => {
     setData((d) => ({ ...d, letters: d.letters.filter((l) => l.id !== id) }));
@@ -190,11 +241,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const autoApply = useCallback<StoreValue["autoApply"]>((count) => {
+  const autoApply = useCallback<StoreValue["autoApply"]>((offers, count) => {
     let n = 0;
+    const pool = offers.length ? offers : OFFERS;
     setData((d) => {
       const appliedIds = new Set(d.applications.map((a) => a.offerId));
-      const candidates = OFFERS.filter((o) => !appliedIds.has(o.id)).slice(0, count);
+      const candidates = pool
+        .filter((o) => !appliedIds.has(o.id))
+        .sort((a, b) => b.match - a.match)
+        .slice(0, count);
       n = candidates.length;
       const newApps: Application[] = candidates.map((offer) => ({
         id: uid("app"),
@@ -219,9 +274,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ...data,
       hydrated,
+      isPro: data.plan !== "Free" && data.subscription.status === "active",
       signIn,
       signOut,
-      setPlan,
+      activatePlan,
+      cancelSubscription,
+      canCreateResume,
+      canCreateLetter,
+      autoApplyLimit,
       addResume,
       removeResume,
       addLetter,
@@ -236,7 +296,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       hydrated,
       signIn,
       signOut,
-      setPlan,
+      activatePlan,
+      cancelSubscription,
+      canCreateResume,
+      canCreateLetter,
+      autoApplyLimit,
       addResume,
       removeResume,
       addLetter,

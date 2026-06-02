@@ -5,7 +5,9 @@ import { Mail, Plus, Trash2, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 import { useStore } from "@/lib/store";
+import { PLANS } from "@/lib/plans";
 import type { CoverLetter } from "@/lib/types";
+import type { DashboardView } from "./views";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,13 +22,24 @@ import {
 
 const TONES: CoverLetter["tone"][] = ["Formel", "Créatif", "Technique"];
 
-export function LettersSection() {
-  const { letters, addLetter, removeLetter } = useStore();
+export function LettersSection({ onNavigate }: { onNavigate: (v: DashboardView) => void }) {
+  const { letters, addLetter, removeLetter, canCreateLetter, plan, isPro } = useStore();
   const [open, setOpen] = useState(false);
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [tone, setTone] = useState<CoverLetter["tone"]>("Formel");
   const [preview, setPreview] = useState<CoverLetter | null>(null);
+
+  const limit = PLANS[plan].limits.letters;
+
+  const openCreate = () => {
+    if (!canCreateLetter()) {
+      toast.error(`Limite atteinte (${limit} lettres en plan ${plan}). Passez Pro pour l'illimité.`);
+      onNavigate("billing");
+      return;
+    }
+    setOpen(true);
+  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +48,12 @@ export function LettersSection() {
       return;
     }
     const l = addLetter({ company, role, tone });
+    if (!l) {
+      toast.error("Limite de lettres atteinte. Passez Pro pour continuer.");
+      setOpen(false);
+      onNavigate("billing");
+      return;
+    }
     toast.success("Lettre générée.");
     setCompany("");
     setRole("");
@@ -59,11 +78,14 @@ export function LettersSection() {
           <h1 className="text-2xl font-semibold tracking-tight">Lettres de motivation</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Générez des lettres personnalisées au ton de votre choix.
+            {!isPro && limit !== -1 && (
+              <> · <span className="font-medium text-foreground">{letters.length}/{limit}</span> utilisées (plan {plan})</>
+            )}
           </p>
         </div>
         <Button
           className="bg-gradient-primary shadow-glow hover:opacity-95"
-          onClick={() => setOpen(true)}
+          onClick={openCreate}
         >
           <Plus className="mr-1 h-4 w-4" /> Nouvelle lettre
         </Button>
@@ -75,7 +97,7 @@ export function LettersSection() {
           <p className="mt-4 text-sm text-muted-foreground">
             Aucune lettre. Générez-en une adaptée à une offre précise.
           </p>
-          <Button className="mt-4" variant="outline" onClick={() => setOpen(true)}>
+          <Button className="mt-4" variant="outline" onClick={openCreate}>
             <Plus className="mr-1 h-4 w-4" /> Créer une lettre
           </Button>
         </div>

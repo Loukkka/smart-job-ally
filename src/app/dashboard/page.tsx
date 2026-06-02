@@ -5,12 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard, FileText, Mail, Briefcase, Send, Mic, ShieldCheck,
-  Sparkles, Plus, LogOut, Menu, X,
+  CreditCard, Sparkles, Plus, LogOut, Menu, X, Crown,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useStore } from "@/lib/store";
+import { PLANS } from "@/lib/plans";
+import type { JobOffer } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import type { DashboardView } from "@/components/dashboard/views";
 import { OverviewSection } from "@/components/dashboard/OverviewSection";
@@ -20,6 +23,7 @@ import { OffersSection } from "@/components/dashboard/OffersSection";
 import { AutoApplySection } from "@/components/dashboard/AutoApplySection";
 import { MockInterviewSection } from "@/components/dashboard/MockInterviewSection";
 import { AtsCheckerSection } from "@/components/dashboard/AtsCheckerSection";
+import { BillingSection } from "@/components/dashboard/BillingSection";
 
 const NAV: { id: DashboardView; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Dashboard", icon: LayoutDashboard },
@@ -29,11 +33,12 @@ const NAV: { id: DashboardView; label: string; icon: typeof LayoutDashboard }[] 
   { id: "autoapply", label: "Auto-Apply", icon: Send },
   { id: "interview", label: "Mock Interview", icon: Mic },
   { id: "ats", label: "ATS Checker", icon: ShieldCheck },
+  { id: "billing", label: "Abonnement", icon: CreditCard },
 ];
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, hydrated, plan, setPlan, signOut, resumes, autoApply } = useStore();
+  const { user, hydrated, plan, isPro, signOut, resumes, autoApply, autoApplyLimit } = useStore();
   const [view, setView] = useState<DashboardView>("overview");
   const [mobileNav, setMobileNav] = useState(false);
 
@@ -63,14 +68,21 @@ export default function DashboardPage() {
     setMobileNav(false);
   };
 
-  const quickAutoApply = () => {
-    const n = autoApply(3);
-    if (n === 0) toast.error("Plus aucune offre à postuler.");
-    else toast.success(`${n} candidature${n > 1 ? "s" : ""} envoyée${n > 1 ? "s" : ""} !`);
+  // Auto-Apply rapide depuis la barre du haut : récupère de vraies offres.
+  const quickAutoApply = async () => {
+    try {
+      const res = await fetch("/api/offers?limit=50");
+      const data = (await res.json()) as { offers: JobOffer[] };
+      const n = autoApply(data.offers ?? [], Math.min(3, autoApplyLimit()));
+      if (n === 0) toast.error("Plus aucune offre à postuler.");
+      else toast.success(`${n} candidature${n > 1 ? "s" : ""} envoyée${n > 1 ? "s" : ""} !`);
+    } catch {
+      toast.error("Impossible de lancer l'Auto-Apply.");
+    }
   };
 
-  const cvUsed = Math.min(resumes.length, 3);
-  const planLimit = plan === "Free";
+  const resumeLimit = PLANS[plan].limits.resumes;
+  const cvUsed = resumeLimit === -1 ? resumes.length : Math.min(resumes.length, resumeLimit);
 
   const Sidebar = (
     <div className="flex h-full flex-col p-4">
@@ -92,24 +104,24 @@ export default function DashboardPage() {
       </nav>
 
       <div className="mt-8 rounded-xl border border-border bg-gradient-to-b from-accent/40 to-card p-4">
-        <div className="text-sm font-medium">Plan {plan}</div>
-        {planLimit ? (
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">Plan {plan}</span>
+          {isPro && <Badge variant="success">Pro</Badge>}
+        </div>
+        {!isPro ? (
           <>
-            <p className="mt-1 text-xs text-muted-foreground">{cvUsed}/3 CV générés ce mois.</p>
-            <Progress value={(cvUsed / 3) * 100} className="mt-3" />
+            <p className="mt-1 text-xs text-muted-foreground">{cvUsed}/{resumeLimit} CV générés ce mois.</p>
+            <Progress value={(cvUsed / resumeLimit) * 100} className="mt-3" />
             <Button
               size="sm"
               className="mt-3 w-full bg-gradient-primary shadow-glow hover:opacity-95"
-              onClick={() => {
-                setPlan("Pro");
-                toast.success("Bienvenue dans le plan Pro ! 🎉");
-              }}
+              onClick={() => navigate("billing")}
             >
-              Passer Pro
+              <Crown className="mr-1 h-4 w-4" /> Passer Pro
             </Button>
           </>
         ) : (
-          <p className="mt-1 text-xs text-muted-foreground">Générations illimitées débloquées.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Générations illimitées débloquées. ✨</p>
         )}
       </div>
     </div>
@@ -182,12 +194,13 @@ export default function DashboardPage() {
 
         <main className="flex-1 p-4 sm:p-6 lg:p-10">
           {view === "overview" && <OverviewSection onNavigate={navigate} />}
-          {view === "resumes" && <ResumesSection />}
-          {view === "letters" && <LettersSection />}
+          {view === "resumes" && <ResumesSection onNavigate={navigate} />}
+          {view === "letters" && <LettersSection onNavigate={navigate} />}
           {view === "offers" && <OffersSection />}
-          {view === "autoapply" && <AutoApplySection />}
+          {view === "autoapply" && <AutoApplySection onNavigate={navigate} />}
           {view === "interview" && <MockInterviewSection />}
           {view === "ats" && <AtsCheckerSection />}
+          {view === "billing" && <BillingSection />}
         </main>
       </div>
     </div>

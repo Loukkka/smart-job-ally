@@ -33,6 +33,7 @@ export interface JobOffer {
   match: number;
   tags: string[];
   description: string;
+  url?: string;
 }
 
 export interface Application {
@@ -50,13 +51,18 @@ export interface InterviewMessage {
   content: string;
 }
 
-export interface PlanState {
-  plan: "Free" | "Pro" | "Annuel";
+export type PlanId = "Free" | "Pro" | "Annuel";
+
+export interface Subscription {
+  status: "active" | "none";
+  since: string | null; // ISO date d'activation
+  provider: "stripe" | "demo" | null;
 }
 
 export interface AppData {
   user: User | null;
-  plan: PlanState["plan"];
+  plan: PlanId;
+  subscription: Subscription;
   resumes: Resume[];
   letters: CoverLetter[];
   applications: Application[];

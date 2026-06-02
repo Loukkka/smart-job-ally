@@ -5,6 +5,8 @@ import { FileText, Plus, Trash2, Download } from "lucide-react";
 import { toast } from "sonner";
 
 import { useStore } from "@/lib/store";
+import { PLANS } from "@/lib/plans";
+import type { DashboardView } from "./views";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,19 +21,29 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-export function ResumesSection() {
-  const { resumes, addResume, removeResume } = useStore();
+export function ResumesSection({ onNavigate }: { onNavigate: (v: DashboardView) => void }) {
+  const { resumes, addResume, removeResume, canCreateResume, plan, isPro } = useStore();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [role, setRole] = useState("");
   const [summary, setSummary] = useState("");
   const [skills, setSkills] = useState("");
 
+  const limit = PLANS[plan].limits.resumes;
   const reset = () => {
     setTitle("");
     setRole("");
     setSummary("");
     setSkills("");
+  };
+
+  const openCreate = () => {
+    if (!canCreateResume()) {
+      toast.error(`Limite atteinte (${limit} CV en plan ${plan}). Passez Pro pour des CV illimités.`);
+      onNavigate("billing");
+      return;
+    }
+    setOpen(true);
   };
 
   const submit = (e: React.FormEvent) => {
@@ -41,6 +53,12 @@ export function ResumesSection() {
       return;
     }
     const r = addResume({ title, role, summary, skills });
+    if (!r) {
+      toast.error("Limite de CV atteinte. Passez Pro pour continuer.");
+      setOpen(false);
+      onNavigate("billing");
+      return;
+    }
     toast.success(`CV créé · score ATS ${r.atsScore}/100`);
     reset();
     setOpen(false);
@@ -67,11 +85,14 @@ export function ResumesSection() {
           <h1 className="text-2xl font-semibold tracking-tight">Mes CV</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Générez et gérez des CV optimisés ATS.
+            {!isPro && limit !== -1 && (
+              <> · <span className="font-medium text-foreground">{resumes.length}/{limit}</span> utilisés (plan {plan})</>
+            )}
           </p>
         </div>
         <Button
           className="bg-gradient-primary shadow-glow hover:opacity-95"
-          onClick={() => setOpen(true)}
+          onClick={openCreate}
         >
           <Plus className="mr-1 h-4 w-4" /> Nouveau CV
         </Button>
@@ -83,7 +104,7 @@ export function ResumesSection() {
           <p className="mt-4 text-sm text-muted-foreground">
             Aucun CV pour l&apos;instant. Créez votre premier CV en quelques secondes.
           </p>
-          <Button className="mt-4" variant="outline" onClick={() => setOpen(true)}>
+          <Button className="mt-4" variant="outline" onClick={openCreate}>
             <Plus className="mr-1 h-4 w-4" /> Créer un CV
           </Button>
         </div>
