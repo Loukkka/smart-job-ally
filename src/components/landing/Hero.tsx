@@ -1,8 +1,24 @@
+"use client";
+
+import { useState } from "react";
 import { ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
-import Link from "next/link";
+
+import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
+import { AuthDialog } from "@/components/AuthDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export function Hero() {
+  const { user, hydrated } = useStore();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(false);
+
   return (
     <section className="relative overflow-hidden">
       <div className="absolute inset-0 bg-hero-gradient" />
@@ -12,7 +28,7 @@ export function Hero() {
         <div className="mx-auto max-w-3xl text-center">
           <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-border/80 bg-card/60 px-3 py-1 text-xs font-medium text-muted-foreground shadow-card backdrop-blur">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
-            Propulsé par l'IA · Nouvelle version 2026
+            Propulsé par l&apos;IA · Nouvelle version 2026
           </div>
 
           <h1 className="mt-6 text-balance text-5xl font-semibold tracking-tight sm:text-6xl md:text-7xl">
@@ -26,13 +42,20 @@ export function Hero() {
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button size="lg" className="h-12 bg-gradient-primary px-6 text-base shadow-glow hover:opacity-95" asChild>
-              <Link href="/dashboard">
-                Démarrer gratuitement
-                <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
+            <Button
+              size="lg"
+              className="h-12 bg-gradient-primary px-6 text-base shadow-glow hover:opacity-95"
+              onClick={() => setAuthOpen(true)}
+            >
+              {hydrated && user ? "Accéder au dashboard" : "Démarrer gratuitement"}
+              <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
-            <Button size="lg" variant="outline" className="h-12 px-6 text-base">
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-12 px-6 text-base"
+              onClick={() => setDemoOpen(true)}
+            >
               Voir une démo
             </Button>
           </div>
@@ -50,7 +73,7 @@ export function Hero() {
           <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-elevated">
             <div className="flex items-center gap-1.5 border-b border-border bg-muted/40 px-4 py-3">
               <div className="h-2.5 w-2.5 rounded-full bg-destructive/70" />
-              <div className="h-2.5 w-2.5 rounded-full bg-chart-4/70" style={{ background: "oklch(0.85 0.15 75)" }} />
+              <div className="h-2.5 w-2.5 rounded-full" style={{ background: "oklch(0.85 0.15 75)" }} />
               <div className="h-2.5 w-2.5 rounded-full bg-success/70" />
               <div className="ml-3 text-xs text-muted-foreground">app.hirewise.io / dashboard</div>
             </div>
@@ -102,6 +125,42 @@ export function Hero() {
           </div>
         </div>
       </div>
+
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} defaultTab="signup" />
+
+      <Dialog open={demoOpen} onOpenChange={setDemoOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Démo de Hirewise</DialogTitle>
+            <DialogDescription>
+              Découvrez le parcours complet en 3 étapes.
+            </DialogDescription>
+          </DialogHeader>
+          <ol className="space-y-3 text-sm">
+            <li className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-xs font-medium text-primary-foreground">1</span>
+              Créez votre CV optimisé ATS en quelques secondes.
+            </li>
+            <li className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-xs font-medium text-primary-foreground">2</span>
+              Laissez l&apos;Auto-Apply postuler aux meilleures offres pour vous.
+            </li>
+            <li className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-xs font-medium text-primary-foreground">3</span>
+              Entraînez-vous avec le Mock Interview et décrochez le poste.
+            </li>
+          </ol>
+          <Button
+            className="w-full bg-gradient-primary shadow-glow hover:opacity-95"
+            onClick={() => {
+              setDemoOpen(false);
+              setAuthOpen(true);
+            }}
+          >
+            Essayer maintenant
+          </Button>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

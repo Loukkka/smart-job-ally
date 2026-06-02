@@ -1,8 +1,25 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
+
+import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
+import { AuthDialog } from "@/components/AuthDialog";
 
 export function Navbar() {
+  const { user, hydrated } = useStore();
+  const router = useRouter();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [tab, setTab] = useState<"signin" | "signup">("signin");
+
+  const openAuth = (t: "signin" | "signup") => {
+    setTab(t);
+    setAuthOpen(true);
+  };
+
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
@@ -21,14 +38,32 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/dashboard">Connexion</Link>
-          </Button>
-          <Button size="sm" className="bg-gradient-primary shadow-glow hover:opacity-95" asChild>
-            <Link href="/dashboard">Commencer gratuitement</Link>
-          </Button>
+          {hydrated && user ? (
+            <Button
+              size="sm"
+              className="bg-gradient-primary shadow-glow hover:opacity-95"
+              onClick={() => router.push("/dashboard")}
+            >
+              Mon dashboard
+            </Button>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" onClick={() => openAuth("signin")}>
+                Connexion
+              </Button>
+              <Button
+                size="sm"
+                className="bg-gradient-primary shadow-glow hover:opacity-95"
+                onClick={() => openAuth("signup")}
+              >
+                Commencer gratuitement
+              </Button>
+            </>
+          )}
         </div>
       </div>
+
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} defaultTab={tab} />
     </header>
   );
 }

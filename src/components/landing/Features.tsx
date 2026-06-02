@@ -18,10 +18,10 @@ export function Features() {
         <div className="mx-auto max-w-2xl text-center">
           <div className="text-sm font-medium text-primary">Tout-en-un</div>
           <h2 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
-            Tout ce qu'il vous faut pour <span className="text-gradient">être recruté</span>
+            Tout ce qu&apos;il vous faut pour <span className="text-gradient">être recruté</span>
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Une suite complète d'outils IA pensée pour transformer votre recherche d'emploi.
+            Une suite complète d&apos;outils IA pensée pour transformer votre recherche d&apos;emploi.
           </p>
         </div>
 
